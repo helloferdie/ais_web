@@ -1,105 +1,42 @@
-// const articles: {
-//   id: number;
-//   author: string;
-//   body: string;
-//   title: string;
-//   [key: string]: any;
-// }[] = [
-//   {
-//     author: "Gopher",
-//     body: "Hello world",
-//     created_at: "2023-06-25T20:14:17+07:00",
-//     deleted_at: null,
-//     id: 94,
-//     title: "New title",
-//     updated_at: "2023-06-25T20:14:17+07:00",
-//   },
-//   {
-//     author: "O'Reilly Media, Inc",
-//     body: "Perfect for beginners familiar with programming basics, this hands-on guide provides an easy introduction to Go, the general-purpose programming language from Google. Author Caleb Doxsey covers the language’s core features with step-by-step instructions and exercises in each chapter to help you practice what you learn. By the time you finish this book, not only will you be able to write real Go programs, you'll be ready to tackle advanced techniques.",
-//     created_at: "2023-06-25T20:14:16+07:00",
-//     deleted_at: null,
-//     id: 93,
-//     title: "Introducing Go",
-//     updated_at: "2023-06-25T20:14:16+07:00",
-//   },
-//   {
-//     author: "O'Reilly Media, Inc",
-//     body: "Perfect for beginners familiar with programming basics, this hands-on guide provides an easy introduction to Go, the general-purpose programming language from Google. Author Caleb Doxsey covers the language’s core features with step-by-step instructions and exercises in each chapter to help you practice what you learn. By the time you finish this book, not only will you be able to write real Go programs, you'll be ready to tackle advanced techniques.",
-//     created_at: "2023-06-25T20:14:16+07:00",
-//     deleted_at: null,
-//     id: 92,
-//     title: "Introducing Go",
-//     updated_at: "2023-06-25T20:14:16+07:00",
-//   },
-//   {
-//     author: "O'Reilly Media, Inc",
-//     body: "Perfect for beginners familiar with programming basics, this hands-on guide provides an easy introduction to Go, the general-purpose programming language from Google. Author Caleb Doxsey covers the language’s core features with step-by-step instructions and exercises in each chapter to help you practice what you learn. By the time you finish this book, not only will you be able to write real Go programs, you'll be ready to tackle advanced techniques.",
-//     created_at: "2023-06-25T20:14:16+07:00",
-//     deleted_at: null,
-//     id: 91,
-//     title: "Introducing Go",
-//     updated_at: "2023-06-25T20:14:16+07:00",
-//   },
-//   {
-//     author: "O'Reilly Media, Inc",
-//     body: "Perfect for beginners familiar with programming basics, this hands-on guide provides an easy introduction to Go, the general-purpose programming language from Google. Author Caleb Doxsey covers the language’s core features with step-by-step instructions and exercises in each chapter to help you practice what you learn. By the time you finish this book, not only will you be able to write real Go programs, you'll be ready to tackle advanced techniques.",
-//     created_at: "2023-06-25T20:14:12+07:00",
-//     deleted_at: null,
-//     id: 86,
-//     title: "Introducing Go",
-//     updated_at: "2023-06-25T20:14:12+07:00",
-//   },
-// ];
+import { ArticleAPI } from "@/types/article";
+import Link from "next/link";
 
-import { useState } from "react";
-
-interface APIResponse {
-  success: boolean;
-  code: number;
-  message: string;
-  error: string;
-}
-
-interface Article {
-  id: number;
-  author: string;
-  body: string;
-  title: string;
-  [key: string]: any;
-}
-
-interface APIArticle extends APIResponse {
-  data: null | {
-    total_items: number;
-    total_pages: number;
-    items: Article[];
-  };
-}
-
-async function getArticles(): Promise<APIArticle> {
+async function getArticles(params: {
+  page: number;
+  itemsPerPage: number;
+}): Promise<ArticleAPI> {
   const res = await fetch(
-    "http://localhost:1000/articles?page=1&items_per_page=10"
+    "http://localhost:1000/articles?page=" +
+      Number(params.page).toString() +
+      "&items_per_page=" +
+      params.itemsPerPage.toString(),
+    {
+      cache: "no-store",
+    }
   );
-  // // The return value is *not* serialized
-  // // You can return Date, Map, Set, etc.
-
-  // // Recommendation: handle errors
-  // if (!res.ok) {
-  //   console.log("im here");
-  //   // This will activate the closest `error.js` Error Boundary
-  //   throw new Error("Failed to fetch data");
-  // }
-
-  // const resp: APIArticle = await res.json();
-  // return resp.data ? resp.data.items : [];
-
   return res.json();
 }
 
-export default async function ArticlePage() {
-  //const [current, setCurrent] = useState(0)
-  const articles = await getArticles();
+export default async function ArticlePage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
+  const page =
+    typeof searchParams?.page === "string" ? Number(searchParams.page) : 1;
+  const itemsPerPage =
+    typeof searchParams?.limit === "string" ? Number(searchParams.limit) : 10;
+
+  const articles = await getArticles({ page, itemsPerPage });
+
+  const totalItems =
+    articles.success && articles.data ? articles.data.total_items : 0;
+
+  const lowerBound = (page - 1) * itemsPerPage + 1;
+  const upperBound = totalItems > 0 ? page * itemsPerPage : 0;
+
+  const articleData =
+    articles.success && articles.data ? articles.data.items : [];
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -121,6 +58,7 @@ export default async function ArticlePage() {
 
       {/* Content */}
       <div className="-mx-4 mt-8 overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:-mx-6 md:mx-0 md:rounded-lg">
+        {/* Table */}
         <table className="min-w-full divide-y divide-gray-300">
           {/* Table head */}
           <thead className="bg-gray-50">
@@ -150,33 +88,75 @@ export default async function ArticlePage() {
           </thead>
           {/* Table content */}
           <tbody className="divide-y divide-gray-200 bg-white">
-            {articles.success &&
-              articles.data &&
-              articles.data.items.map((article) => {
-                return (
-                  <tr key={article.id}>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                      {article.title}
-                    </td>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                      {article.author}
-                    </td>
-                    <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
-                      <p className="line-clamp-2">{article.body}</p>
-                    </td>
-                    <td className="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      <a
-                        href="#"
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        Edit
-                      </a>
-                    </td>
-                  </tr>
-                );
-              })}
+            {articleData.map((article) => {
+              return (
+                <tr key={article.id}>
+                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                    {article.title}
+                  </td>
+                  <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                    {article.author}
+                  </td>
+                  <td className="hidden px-3 py-4 text-sm text-gray-500 lg:table-cell">
+                    <p className="line-clamp-2">{article.body}</p>
+                  </td>
+                  <td className="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                    <a
+                      href="#"
+                      className="text-indigo-600 hover:text-indigo-900"
+                    >
+                      Edit
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        <nav
+          className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6"
+          aria-label="Pagination"
+        >
+          <div className="hidden sm:block">
+            <p className="text-sm text-gray-700">
+              Showing <span className="font-medium">{lowerBound}</span> to{" "}
+              <span className="font-medium">{upperBound}</span> of{" "}
+              <span className="font-medium">{totalItems}</span> results
+            </p>
+          </div>
+          <div className="flex-1 flex justify-between sm:justify-end">
+            {/* <a
+              href="#"
+              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Previous
+            </a> */}
+            <Link
+              href={{
+                pathname: "/article",
+                query: {
+                  page: page > 1 ? page - 1 : 1,
+                },
+              }}
+              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Previous
+            </Link>
+            <Link
+              href={{
+                pathname: "/article",
+                query: {
+                  page: page + 1,
+                },
+              }}
+              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Next
+            </Link>
+          </div>
+        </nav>
       </div>
     </div>
   );
